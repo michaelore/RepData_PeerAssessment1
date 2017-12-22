@@ -7,19 +7,69 @@ output:
 
 
 ## Loading and preprocessing the data
-
-
+```{r}
+library(dplyr)
+library(lubridate)
+library(ggplot2)
+activity <- read.csv("activity.csv", stringsAsFactors = FALSE)
+activity <- mutate(activity, date = ymd(date))
+```
 
 ## What is mean total number of steps taken per day?
+```{r}
+totals <- activity %>%
+  group_by(date) %>%
+  summarise(total = sum(steps, na.rm = TRUE))
 
+hist(totals$total)
 
+list(mean = mean(totals$total), median = median(totals$total))
+```
 
 ## What is the average daily activity pattern?
+```{r}
+avgs <- activity %>%
+  group_by(interval) %>%
+  summarise(avg = mean(steps, na.rm = TRUE))
 
-
+with(avgs, plot(interval, avg, type="l"))
+```
 
 ## Imputing missing values
+```{r}
+sum(is.na(activity$steps))
+
+avglookup <- avgs$avg
+names(avglookup) <- avgs$interval
+activity.impute <- mutate(activity, steps = ifelse(is.na(steps),
+                                                   avglookup[as.character(interval)],
+                                                   steps))
+
+totals.impute <- activity.impute %>%
+  group_by(date) %>%
+  summarise(total = sum(steps, na.rm = TRUE))
+
+hist(totals.impute$total)
+
+list(mean = mean(totals.impute$total), median = median(totals.impute$total))
+```
 
 
 
 ## Are there differences in activity patterns between weekdays and weekends?
+```{r}
+weekday.or.end <- function(date) {
+  wdays <- weekdays(date)
+  result <- ifelse(wdays == "Saturday" | wdays == "Sunday", "weekend", "weekday")
+  factor(result, levels = c("weekday", "weekend"))
+}
+
+avgs.weekend <- activity %>%
+  mutate(date = weekday.or.end(date)) %>%
+  group_by(interval, date) %>%
+  summarise(avg = mean(steps, na.rm = TRUE))
+
+ggplot(avgs.weekend, aes(interval, avg)) +
+  geom_line() +
+  facet_grid(date ~ .)
+```
